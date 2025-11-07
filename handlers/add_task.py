@@ -153,7 +153,8 @@ async def process_assignee(callback: CallbackQuery, state: FSMContext):
     assignee_id = None if assignee_data == "none" else int(assignee_data)
     
     await callback.message.delete()
-    await save_task(callback.message, state, assignee_id)
+    # Передаем callback вместо message для получения правильного user_id
+    await save_task_from_callback(callback, state, assignee_id)
     await callback.answer()
 
 
@@ -176,6 +177,47 @@ async def save_task(message: Message, state: FSMContext, assignee_id: int = None
     from database import get_user_by_telegram_id
     user = await get_user_by_telegram_id(message.from_user.id)
     user_id = user[0]
+    
+    await _save_task_to_db(message, task_text, category, deadline, user_id, assignee_id, state)
+
+
+async def save_task_from_callback(callback: CallbackQuery, state: FSMContext, assignee_id: int = None):
+    """
+    Сохраняет задачу в базу данных из callback
+    
+    Args:
+        callback: CallbackQuery от пользователя
+        state: Состояние FSM
+        assignee_id: ID ответственного пользователя
+    """
+    # Получаем все данные из состояния
+    data = await state.get_data()
+    task_text = data.get("task_text")
+    category = data.get("category")
+    deadline = data.get("deadline")
+    
+    # Получаем ID текущего пользователя из callback
+    from database import get_user_by_telegram_id
+    user = await get_user_by_telegram_id(callback.from_user.id)
+    user_id = user[0]
+    
+    # Используем callback.message для отправки ответа
+    await _save_task_to_db(callback.message, task_text, category, deadline, user_id, assignee_id, state)
+
+
+async def _save_task_to_db(message: Message, task_text: str, category: str, deadline: str, user_id: int, assignee_id: int, state: FSMContext):
+    """
+    Внутренняя функция для сохранения задачи в БД
+    
+    Args:
+        message: Сообщение для отправки ответа
+        task_text: Текст задачи
+        category: Категория задачи
+        deadline: Дедлайн задачи
+        user_id: ID создателя задачи
+        assignee_id: ID ответственного пользователя
+        state: Состояние FSM
+    """
     
     # Добавляем задачу в базу данных
     task_id = await add_task(

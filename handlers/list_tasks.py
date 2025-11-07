@@ -104,6 +104,8 @@ async def filter_tasks(callback: CallbackQuery):
     """
     Обработчик фильтрации задач по категориям
     """
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
     # Извлекаем категорию из callback_data
     filter_value = callback.data.split(":")[1]
     
@@ -123,43 +125,97 @@ async def filter_tasks(callback: CallbackQuery):
         await callback.answer()
         return
     
-    # Формируем текст со списком задач
-    text = f"📋 Список задач ({len(tasks)})\n"
-    text += f"📁 Фильтр: {category_text}\n\n"
-    
-    for task in tasks:
-        text += format_task(task) + "\n"
-        text += "─" * 30 + "\n\n"
-    
-    # Отправляем список задач
-    # Telegram ограничивает длину сообщения 4096 символами
-    if len(text) > 4096:
-        # Если текст слишком длинный, разбиваем на части
-        parts = []
-        current_part = f"📋 Список задач ({len(tasks)})\n📁 Фильтр: {category_text}\n\n"
+    # Если задач много, показываем список с кнопками выбора
+    if len(tasks) > 10:
+        # Создаем кнопки для выбора задачи
+        buttons = []
+        for task in tasks[:20]:  # Ограничиваем 20 задачами
+            task_id, text, status, category, deadline, creator, assignee, created_at = task
+            
+            # Эмодзи для статусов
+            status_emoji = {
+                "новое": "🆕",
+                "в работе": "⚙️",
+                "выполнено": "✅"
+            }
+            
+            button_text = f"{status_emoji.get(status, '•')} #{task_id}: {text[:30]}..."
+            buttons.append([
+                InlineKeyboardButton(
+                    text=button_text,
+                    callback_data=f"task:{task_id}"
+                )
+            ])
         
-        for task in tasks:
-            task_text = format_task(task) + "\n" + "─" * 30 + "\n\n"
-            if len(current_part) + len(task_text) > 4000:
-                parts.append(current_part)
-                current_part = task_text
-            else:
-                current_part += task_text
+        # Добавляем кнопку возврата
+        buttons.append([
+            InlineKeyboardButton(
+                text="◀️ Назад к фильтрам",
+                callback_data="back_to_filters"
+            )
+        ])
         
-        if current_part:
-            parts.append(current_part)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
         
-        # Удаляем старое сообщение и отправляем новые
-        await callback.message.delete()
-        for i, part in enumerate(parts):
-            if i == 0:
-                await callback.message.answer(part)
-            else:
-                await callback.message.answer(part)
+        await callback.message.edit_text(
+            f"📋 Список задач ({len(tasks)})\n"
+            f"📁 Фильтр: {category_text}\n\n"
+            f"Выберите задачу для управления:",
+            reply_markup=keyboard
+        )
     else:
-        await callback.message.edit_text(text)
+        # Если задач мало, показываем детально с кнопками под каждой
+        await show_tasks_with_buttons(callback.message, tasks, category_text, edit=True)
     
     await callback.answer()
+
+
+async def show_tasks_with_buttons(message, tasks, category_text, edit=False):
+    """
+    Показывает список задач с inline-кнопками для каждой задачи
+    """
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    
+    for i, task in enumerate(tasks):
+        task_id = task[0]
+        task_text = format_task(task, show_number=True)
+        
+        # Создаем кнопки для этой задачи
+        buttons = [
+            [
+                InlineKeyboardButton(
+                    text="📊 Статус",
+                    callback_data=f"change_status:{task_id}"
+                ),
+                InlineKeyboardButton(
+                    text="📁 Категория",
+                    callback_data=f"change_category:{task_id}"
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="🗑 Удалить",
+                    callback_data=f"delete:{task_id}"
+                )
+            ]
+        ]
+        
+        keyboard = InlineKeyboardMarkup(inline_keyboard=buttons)
+        
+        if i == 0 and edit:
+            await message.edit_text(
+                f"📋 Задача {i+1} из {len(tasks)}\n"
+                f"📁 Фильтр: {category_text}\n\n"
+                f"{task_text}",
+                reply_markup=keyboard
+            )
+        else:
+            await message.answer(
+                f"📋 Задача {i+1} из {len(tasks)}\n"
+                f"📁 Фильтр: {category_text}\n\n"
+                f"{task_text}",
+                reply_markup=keyboard
+            )
 
 
 @router.callback_query(F.data.startswith("task:"))
@@ -196,6 +252,18 @@ async def back_to_list(callback: CallbackQuery):
     """
     await callback.message.delete()
     await callback.message.answer(
+        "📋 Выберите категорию для фильтрации или посмотрите все задачи:",
+        reply_markup=get_category_keyboard(for_filter=True)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "back_to_filters")
+async def back_to_filters(callback: CallbackQuery):
+    """
+    Возврат к фильтрам
+    """
+    await callback.message.edit_text(
         "📋 Выберите категорию для фильтрации или посмотрите все задачи:",
         reply_markup=get_category_keyboard(for_filter=True)
     )
