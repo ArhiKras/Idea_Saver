@@ -1,0 +1,32 @@
+# Виртуальное окружение
+venv/
+env/
+ENV/
+
+# База данных
+*.db
+*.sqlite
+*.sqlite3
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Временные файлы
+*.csv
+*.log
+*.tmp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Конфигурация (если используете .env)
+.env
+.env.local
+
