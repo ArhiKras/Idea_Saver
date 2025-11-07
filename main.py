@@ -1,6 +1,13 @@
 """
 Главный файл Telegram-бота для командной работы с задачами
 
+Расширенная версия с поддержкой:
+- Статусов задач (новое, в работе, выполнено)
+- Категорий (frontend, backend, database)
+- Дедлайнов
+- Назначения ответственных
+- Авторизации пользователей
+
 Запуск бота:
 1. Установите зависимости: pip install -r requirements.txt
 2. Получите токен бота у @BotFather в Telegram
@@ -44,6 +51,7 @@ async def main():
         return
     
     # Инициализируем базу данных
+    print("🔧 Инициализация базы данных...")
     await init_db()
     
     # Создаем объект бота с токеном
@@ -54,6 +62,7 @@ async def main():
     dp = Dispatcher(storage=MemoryStorage())
     
     # Регистрируем все роутеры (обработчики команд)
+    print("📝 Регистрация обработчиков...")
     for router in routers:
         dp.include_router(router)
     
@@ -61,8 +70,22 @@ async def main():
     # polling - постоянное получение обновлений от Telegram
     await bot.delete_webhook(drop_pending_updates=True)
     
+    print("=" * 50)
     print("🤖 Бот запущен и готов к работе!")
-    print("Нажмите Ctrl+C для остановки бота")
+    print("=" * 50)
+    print("\n📋 Доступные функции:")
+    print("  • Добавление задач с категориями и дедлайнами")
+    print("  • Назначение ответственных")
+    print("  • Изменение статусов (новое, в работе, выполнено)")
+    print("  • Фильтрация по категориям")
+    print("  • Экспорт в CSV")
+    print("\n💡 Команды:")
+    print("  /start - Начало работы")
+    print("  /add - Добавить задачу")
+    print("  /list - Список всех задач")
+    print("  /my_tasks - Мои задачи")
+    print("  /list_csv - Экспорт в CSV")
+    print("\n⏹️  Нажмите Ctrl+C для остановки бота\n")
     
     # Запускаем polling
     await dp.start_polling(bot)
@@ -78,4 +101,3 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         # Обрабатываем прерывание (Ctrl+C)
         print("\n⏹️ Бот остановлен")
-
